@@ -75,10 +75,11 @@ export function Navbar({ profile }: NavbarProps) {
                 <Link
                   key={item.name}
                   href={item.href}
+                  prefetch={true}
                   className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs lg:text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 font-semibold'
-                      : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-100'
+                      ? 'bg-zinc-800 text-zinc-100 font-semibold shadow-xs'
+                      : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -90,13 +91,14 @@ export function Navbar({ profile }: NavbarProps) {
             {isAdmin && (
               <Link
                 href="/admin/users"
+                prefetch={true}
                 className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs lg:text-sm font-medium transition-colors ${
                   pathname.startsWith('/admin')
-                    ? 'bg-purple-50 text-purple-900 dark:bg-purple-950/50 dark:text-purple-200 font-semibold'
-                    : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-100'
+                    ? 'bg-purple-950/50 text-purple-200 font-semibold border border-purple-800/40'
+                    : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100'
                 }`}
               >
-                <Shield className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <Shield className="w-4 h-4 text-purple-400" />
                 Admin
               </Link>
             )}
