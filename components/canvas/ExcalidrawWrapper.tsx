@@ -78,7 +78,7 @@ export default function ExcalidrawWrapper({
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-white dark:bg-zinc-900">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950">
       {/* Header Bar */}
       <CanvasHeader
         board={board}
@@ -92,7 +92,7 @@ export default function ExcalidrawWrapper({
       />
 
       {/* Excalidraw Canvas Container with non-zero dimensions */}
-      <div className="relative flex-1 w-full h-full">
+      <div className="relative flex-1 w-full h-full bg-zinc-950">
         <Excalidraw
           excalidrawAPI={(api) => setExcalidrawAPI(api)}
           initialData={{
@@ -100,12 +100,14 @@ export default function ExcalidrawWrapper({
             appState: {
               ...(sceneData.appState || {}),
               viewModeEnabled: isViewer,
+              theme: 'dark',
+              viewBackgroundColor: '#121212',
             },
             files: sceneData.files || {},
           }}
           onChange={handleChange}
           viewModeEnabled={isViewer}
-          theme="light"
+          theme="dark"
           UIOptions={{
             canvasActions: {
               changeViewBackgroundColor: true,
@@ -113,7 +115,7 @@ export default function ExcalidrawWrapper({
               export: { saveFileToDisk: true },
               loadScene: canEdit,
               saveToActiveFile: false,
-              toggleTheme: false,
+              toggleTheme: true,
             },
           }}
         />

@@ -108,7 +108,7 @@ export default async function SharePage({ params }: SharePageProps) {
 
 function InvalidLinkView({ message }: { message: string }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center p-6 bg-zinc-950 text-zinc-100 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400 mb-4">
         <Link2Off className="h-8 w-8" />
       </div>

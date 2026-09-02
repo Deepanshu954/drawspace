@@ -25,7 +25,7 @@ export default async function DashboardLayout({
     .single();
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
       <Navbar profile={(profile as Profile) || null} />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
