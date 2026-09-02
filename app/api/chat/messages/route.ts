@@ -4,9 +4,9 @@ import { z } from 'zod';
 
 const createMessageSchema = z.object({
   content: z.string().min(1),
-  channel_id: z.string().uuid().optional().nullable(),
-  dm_id: z.string().uuid().optional().nullable(),
-  parent_id: z.string().uuid().optional().nullable(),
+  channel_id: z.string().optional().nullable(),
+  dm_id: z.string().optional().nullable(),
+  parent_id: z.string().optional().nullable(),
   message_type: z.enum(['text', 'code', 'object_ref', 'system']).default('text'),
   metadata: z.record(z.string(), z.any()).optional(),
   attachments: z

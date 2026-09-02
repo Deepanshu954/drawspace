@@ -135,6 +135,9 @@ export function ChatContainer({
   };
 
   const handleAddReaction = async (messageId: string, emoji: string) => {
+    if (messageId.startsWith('temp-')) {
+      return;
+    }
     try {
       await fetch(`/api/chat/messages/${messageId}/reactions`, {
         method: 'POST',

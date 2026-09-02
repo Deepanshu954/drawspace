@@ -45,6 +45,10 @@ export function ThreadDrawer({
   const handleSendReply = async (content: string, type?: any, attachments?: any[]) => {
     if (!parentMessage) return;
 
+    if (parentMessage.id.startsWith('temp-')) {
+      throw new Error('Please wait for the message to finish sending before replying.');
+    }
+
     const res = await fetch('/api/chat/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
