@@ -91,14 +91,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let targetChannelId = parsed.data.channel_id || null;
+    let targetDmId = parsed.data.dm_id || null;
+    let targetParentId = parsed.data.parent_id || null;
+
+    if (!targetChannelId && !targetDmId && !targetParentId) {
+      if (parsed.data.message_type === 'code') {
+        const { data: ch } = await supabase
+          .from('channels')
+          .select('id')
+          .eq('name', 'code-snippets')
+          .single();
+        targetChannelId = ch?.id || '00000000-0000-0000-0000-000000000003';
+      } else if (parsed.data.message_type === 'object_ref') {
+        const { data: ch } = await supabase
+          .from('channels')
+          .select('id')
+          .eq('name', 'whiteboards')
+          .single();
+        targetChannelId = ch?.id || '00000000-0000-0000-0000-000000000002';
+      } else {
+        const { data: ch } = await supabase
+          .from('channels')
+          .select('id')
+          .eq('name', 'general')
+          .single();
+        targetChannelId = ch?.id || '00000000-0000-0000-0000-000000000001';
+      }
+    }
+
     // 1. Insert message
     const { data: message, error } = await supabase
       .from('messages')
       .insert({
         content: parsed.data.content,
-        channel_id: parsed.data.channel_id || null,
-        dm_id: parsed.data.dm_id || null,
-        parent_id: parsed.data.parent_id || null,
+        channel_id: targetChannelId,
+        dm_id: targetDmId,
+        parent_id: targetParentId,
         sender_id: user.id,
         message_type: parsed.data.message_type,
         metadata: parsed.data.metadata || {},

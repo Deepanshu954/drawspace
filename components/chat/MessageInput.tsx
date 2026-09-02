@@ -147,21 +147,32 @@ export function MessageInput({
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!content.trim() && attachments.length === 0) return;
+    const sendText = content.trim();
+    const sendAttachments = attachments.slice();
+
+    if (!sendText && sendAttachments.length === 0) return;
+
+    // Eager instant clear for ultra-responsive feel
+    setContent('');
+    setAttachments([]);
+    setShowSuggestions(false);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
 
     setIsSending(true);
     try {
-      const messageType = content.includes('```') ? 'code' : 'text';
+      const messageType = sendText.includes('```') ? 'code' : 'text';
       await onSendMessage(
-        content.trim(),
+        sendText,
         messageType,
-        attachments.length > 0 ? attachments : undefined
+        sendAttachments.length > 0 ? sendAttachments : undefined
       );
-      setContent('');
-      setAttachments([]);
-      setShowSuggestions(false);
     } catch (err: any) {
       error(err.message || 'Failed to send message');
+      // Restore on failure
+      setContent(sendText);
+      setAttachments(sendAttachments);
     } finally {
       setIsSending(false);
     }

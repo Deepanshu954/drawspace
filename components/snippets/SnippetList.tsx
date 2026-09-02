@@ -31,6 +31,12 @@ export function SnippetList({
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
+  const handleUpdate = (updatedSnippet: CodeSnippet) => {
+    setSnippets((prev) =>
+      prev.map((s) => (s.id === updatedSnippet.id ? updatedSnippet : s))
+    );
+  };
+
   const handleDelete = async (snippetId: string) => {
     try {
       const res = await fetch(`/api/snippets/${snippetId}`, { method: 'DELETE' });
@@ -132,7 +138,9 @@ export function SnippetList({
               snippet={snippet}
               currentUserId={currentUserId}
               canDelete={isOwner || isAdmin}
+              canEdit={isOwner || isAdmin}
               onDelete={handleDelete}
+              onUpdate={handleUpdate}
             />
           );
         })}

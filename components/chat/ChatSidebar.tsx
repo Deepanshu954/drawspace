@@ -13,6 +13,8 @@ import {
   MessageSquare,
   Users,
   Circle,
+  Code2,
+  Layout,
 } from 'lucide-react';
 
 interface ChatSidebarProps {
@@ -68,12 +70,22 @@ export function ChatSidebar({
 
           <div className="space-y-0.5 mt-1.5">
             {channels.map((ch) => {
-              const isActive = activeChannelId === ch.id || (!activeChannelId && !activeDmUserId && ch.name === 'general');
+              const isActive =
+                activeChannelId === ch.id ||
+                (!activeChannelId && !activeDmUserId && ch.name === 'general');
+
+              const getChannelIcon = () => {
+                if (ch.is_private) return <Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />;
+                if (ch.name === 'code-snippets') return <Code2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" />;
+                if (ch.name === 'whiteboards') return <Layout className="w-3.5 h-3.5 shrink-0 text-amber-400" />;
+                return <Hash className="w-3.5 h-3.5 shrink-0 opacity-60" />;
+              };
 
               return (
                 <Link
                   key={ch.id}
                   href={`/chat/${ch.id}`}
+                  prefetch={true}
                   className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
                     isActive
                       ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 font-semibold'
@@ -81,13 +93,14 @@ export function ChatSidebar({
                   }`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    {ch.is_private ? (
-                      <Lock className="w-3.5 h-3.5 shrink-0 opacity-60" />
-                    ) : (
-                      <Hash className="w-3.5 h-3.5 shrink-0 opacity-60" />
-                    )}
+                    {getChannelIcon()}
                     <span className="truncate">{ch.name}</span>
                   </div>
+                  {ch.name === 'general' && (
+                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-400">
+                      main
+                    </span>
+                  )}
                 </Link>
               );
             })}

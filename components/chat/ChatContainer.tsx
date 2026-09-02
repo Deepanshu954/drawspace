@@ -59,6 +59,18 @@ export function ChatContainer({
           if (newMsg) {
             setMessages((prev) => {
               if (prev.some((m) => m.id === newMsg.id)) return prev;
+              // If there's an optimistic message from this user with matching content, replace it smoothly
+              const tempIndex = prev.findIndex(
+                (m) =>
+                  m.id.startsWith('temp-') &&
+                  m.sender_id === newMsg.sender_id &&
+                  m.content === newMsg.content
+              );
+              if (tempIndex !== -1) {
+                const next = [...prev];
+                next[tempIndex] = newMsg as Message;
+                return next;
+              }
               return [...prev, newMsg as Message];
             });
             scrollToBottom();
@@ -76,7 +88,7 @@ export function ChatContainer({
   const scrollToBottom = () => {
     setTimeout(() => {
       scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    }, 50);
   };
 
   const handleSendMessage = async (
@@ -97,7 +109,17 @@ export function ChatContainer({
       is_edited: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      attachments: attachments ? attachments.map((a, idx) => ({ id: `att-${idx}`, message_id: tempId, file_name: a.file_name, file_url: a.file_url, file_type: a.file_type, file_size: a.file_size, created_at: new Date().toISOString() })) : [],
+      attachments: attachments
+        ? attachments.map((a, idx) => ({
+            id: `att-${idx}`,
+            message_id: tempId,
+            file_name: a.name || a.file_name,
+            file_url: a.url || a.file_url,
+            file_type: a.type || a.file_type,
+            file_size: a.size || a.file_size,
+            created_at: new Date().toISOString(),
+          }))
+        : [],
       reactions: [],
     };
 
@@ -123,9 +145,12 @@ export function ChatContainer({
       }
 
       const data = await res.json();
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? data.message : m))
-      );
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === data.message.id)) {
+          return prev.filter((m) => m.id !== tempId);
+        }
+        return prev.map((m) => (m.id === tempId ? data.message : m));
+      });
     } catch (err) {
       console.error('Send message error:', err);
       // Remove failed optimistic msg

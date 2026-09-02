@@ -6,6 +6,7 @@ import { CodeSnippet } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { formatDate } from '@/lib/utils';
+import { EditSnippetModal } from '@/components/snippets/EditSnippetModal';
 import {
   Download,
   Copy,
@@ -16,6 +17,8 @@ import {
   FileCode,
   Image as ImageIcon,
   Layers,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 
 interface RaysoCardProps {
@@ -23,7 +26,9 @@ interface RaysoCardProps {
   currentUserId: string;
   onShareToChat?: (snippet: CodeSnippet, imageDataUrl: string) => void;
   onDelete?: (snippetId: string) => void;
+  onUpdate?: (updatedSnippet: CodeSnippet) => void;
   canDelete?: boolean;
+  canEdit?: boolean;
 }
 
 const THEMES = [
@@ -40,7 +45,9 @@ export function RaysoCard({
   currentUserId,
   onShareToChat,
   onDelete,
+  onUpdate,
   canDelete,
+  canEdit,
 }: RaysoCardProps) {
   const { error, success } = useToast();
   const cardRef = useRef<HTMLDivElement>(null);
@@ -51,6 +58,7 @@ export function RaysoCard({
   const [isExporting, setIsExporting] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const paddingClass = {
     sm: 'p-4 sm:p-6',
@@ -105,31 +113,46 @@ export function RaysoCard({
     try {
       const dataUrl = await toPng(cardRef.current, { pixelRatio: 1.5 });
       
-      // Share to #code-snippets or #general
+      const payload = {
+        content: `⚡ Shared Code Snippet: **${snippet.title}** (${snippet.language})\n\n\`\`\`${snippet.language}\n${snippet.code}\n\`\`\``,
+        channel_id: '00000000-0000-0000-0000-000000000003', // Dedicated #code-snippets
+        message_type: 'code',
+        metadata: {
+          snippetId: snippet.id,
+          snippetTitle: snippet.title,
+          language: snippet.language,
+        },
+        attachments: [
+          {
+            name: `${snippet.title.toLowerCase().replace(/\s+/g, '-')}-snippet.png`,
+            url: dataUrl,
+            type: 'image/png',
+            size: Math.round((dataUrl.length * 3) / 4),
+          },
+        ],
+      };
+
+      // 1. Post to dedicated #code-snippets channel
       const res = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `⚡ Shared Code Snippet: **${snippet.title}** (${snippet.language})\n\n\`\`\`${snippet.language}\n${snippet.code}\n\`\`\``,
-          message_type: 'code',
-          metadata: {
-            snippetId: snippet.id,
-            snippetTitle: snippet.title,
-            language: snippet.language,
-          },
-          attachments: [
-            {
-              name: `${snippet.title.toLowerCase().replace(/\s+/g, '-')}-snippet.png`,
-              url: dataUrl,
-              type: 'image/png',
-              size: Math.round((dataUrl.length * 3) / 4),
-            },
-          ],
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error('Failed to share to chat');
-      success(`Snippet & Ray.so image shared to Team Chat!`);
+      if (!res.ok) throw new Error('Failed to share to #code-snippets channel');
+
+      // 2. Also cross-post a notification to #general channel so general stream has it
+      fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `💡 New code snippet shared in **#code-snippets**: **${snippet.title}** (${snippet.language})`,
+          channel_id: '00000000-0000-0000-0000-000000000001', // #general
+          message_type: 'text',
+        }),
+      }).catch(console.error);
+
+      success(`Snippet & Ray.so image shared to #code-snippets!`);
     } catch (err: any) {
       error(err.message || 'Error sharing snippet to chat');
     } finally {
@@ -140,144 +163,170 @@ export function RaysoCard({
   const codeLines = snippet.code.split('\n');
 
   return (
-    <div className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md">
-      {/* Controls Bar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-zinc-800 bg-zinc-950/60 px-4 py-2.5 gap-2 text-xs">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-zinc-400">Theme:</span>
+    <>
+      <div className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900 overflow-hidden shadow-md">
+        {/* Controls Bar */}
+        <div className="flex flex-wrap items-center justify-between border-b border-zinc-800 bg-zinc-950/60 px-4 py-2.5 gap-2 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-medium text-zinc-400">Theme:</span>
+              <div className="flex items-center gap-1">
+                {THEMES.map((th, idx) => (
+                  <button
+                    key={th.name}
+                    onClick={() => setThemeIdx(idx)}
+                    className={`h-4 w-4 rounded-full ${th.bg} transition-transform ${
+                      themeIdx === idx ? 'scale-125 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                    }`}
+                    title={th.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="h-3.5 w-px bg-zinc-800" />
+
             <div className="flex items-center gap-1">
-              {THEMES.map((th, idx) => (
+              <span className="text-[11px] font-medium text-zinc-400">Padding:</span>
+              {(['sm', 'md', 'lg'] as const).map((p) => (
                 <button
-                  key={th.name}
-                  onClick={() => setThemeIdx(idx)}
-                  className={`h-4 w-4 rounded-full ${th.bg} transition-transform ${
-                    themeIdx === idx ? 'scale-125 ring-2 ring-white' : 'opacity-70 hover:opacity-100'
+                  key={p}
+                  onClick={() => setPadding(p)}
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors ${
+                    padding === p
+                      ? 'bg-zinc-800 text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-300'
                   }`}
-                  title={th.name}
-                />
+                >
+                  {p}
+                </button>
               ))}
             </div>
           </div>
 
-          <div className="h-3.5 w-px bg-zinc-800" />
-
-          <div className="flex items-center gap-1">
-            <span className="text-[11px] font-medium text-zinc-400">Padding:</span>
-            {(['sm', 'md', 'lg'] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPadding(p)}
-                className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors ${
-                  padding === p
-                    ? 'bg-zinc-800 text-zinc-100'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {canEdit && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setIsEditOpen(true)}
+                className="h-7 text-xs gap-1 border-indigo-900/60 bg-indigo-950/40 text-indigo-300 hover:bg-indigo-900/50"
               >
-                {p}
-              </button>
-            ))}
+                <Edit2 className="w-3.5 h-3.5" />
+                Edit
+              </Button>
+            )}
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleCopyCode}
+              className="h-7 text-xs gap-1 border-zinc-700 bg-zinc-800/80"
+            >
+              {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedCode ? 'Copied' : 'Copy'}
+            </Button>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExportPNG}
+              isLoading={isExporting}
+              className="h-7 text-xs gap-1 border-zinc-700 bg-zinc-800/80"
+            >
+              <Download className="w-3.5 h-3.5" />
+              PNG
+            </Button>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleExportSVG}
+              disabled={isExporting}
+              className="h-7 text-xs gap-1 border-zinc-700 bg-zinc-800/80"
+            >
+              <FileCode className="w-3.5 h-3.5" />
+              SVG
+            </Button>
+
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleShareToChat}
+              isLoading={isSharing}
+              className="h-7 text-xs gap-1 bg-indigo-600 hover:bg-indigo-500 text-white"
+            >
+              <Send className="w-3.5 h-3.5" />
+              Send to Chat
+            </Button>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleCopyCode}
-            className="h-7 text-xs gap-1 border-zinc-700 bg-zinc-800/80"
-          >
-            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            {copiedCode ? 'Copied' : 'Copy Code'}
-          </Button>
+        {/* Ray.so Canvas Frame for Export */}
+        <div
+          ref={cardRef}
+          className={`flex items-center justify-center transition-all ${THEMES[themeIdx].bg} ${paddingClass}`}
+        >
+          <div className="w-full max-w-2xl rounded-xl border border-white/10 bg-zinc-950/90 shadow-2xl backdrop-blur-md overflow-hidden">
+            {/* macOS Traffic Lights Header */}
+            <div className="flex h-9 items-center justify-between border-b border-white/10 px-3.5 bg-zinc-900/50">
+              <div className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-[#FF5F56] inline-block shadow-xs" />
+                <span className="h-3 w-3 rounded-full bg-[#FFBD2E] inline-block shadow-xs" />
+                <span className="h-3 w-3 rounded-full bg-[#27C93F] inline-block shadow-xs" />
+              </div>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleExportPNG}
-            isLoading={isExporting}
-            className="h-7 text-xs gap-1 border-zinc-700 bg-zinc-800/80"
-          >
-            <Download className="w-3.5 h-3.5" />
-            PNG
-          </Button>
+              <span className="font-mono text-xs font-semibold text-zinc-300 truncate max-w-[200px]">
+                {snippet.title}
+              </span>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleExportSVG}
-            disabled={isExporting}
-            className="h-7 text-xs gap-1 border-zinc-700 bg-zinc-800/80"
-          >
-            <FileCode className="w-3.5 h-3.5" />
-            SVG
-          </Button>
-
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={handleShareToChat}
-            isLoading={isSharing}
-            className="h-7 text-xs gap-1 bg-indigo-600 hover:bg-indigo-500 text-white"
-          >
-            <Send className="w-3.5 h-3.5" />
-            Share to Chat
-          </Button>
-        </div>
-      </div>
-
-      {/* Ray.so Canvas Frame for Export */}
-      <div
-        ref={cardRef}
-        className={`flex items-center justify-center transition-all ${THEMES[themeIdx].bg} ${paddingClass}`}
-      >
-        <div className="w-full max-w-2xl rounded-xl border border-white/10 bg-zinc-950/90 shadow-2xl backdrop-blur-md overflow-hidden">
-          {/* macOS Traffic Lights Header */}
-          <div className="flex h-9 items-center justify-between border-b border-white/10 px-3.5 bg-zinc-900/50">
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded-full bg-[#FF5F56] inline-block shadow-xs" />
-              <span className="h-3 w-3 rounded-full bg-[#FFBD2E] inline-block shadow-xs" />
-              <span className="h-3 w-3 rounded-full bg-[#27C93F] inline-block shadow-xs" />
+              <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+                {snippet.language}
+              </span>
             </div>
 
-            <span className="font-mono text-xs font-semibold text-zinc-300 truncate max-w-[200px]">
-              {snippet.title}
-            </span>
-
-            <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-              {snippet.language}
-            </span>
+            {/* Code Content */}
+            <div className="p-4 sm:p-5 font-mono text-xs leading-relaxed text-zinc-100 overflow-x-auto select-all">
+              <pre className="flex">
+                {showLineNumbers && (
+                  <div className="select-none pr-4 text-right text-zinc-600 font-mono">
+                    {codeLines.map((_, i) => (
+                      <div key={i}>{i + 1}</div>
+                    ))}
+                  </div>
+                )}
+                <code className="flex-1">{snippet.code}</code>
+              </pre>
+            </div>
           </div>
+        </div>
 
-          {/* Code Content */}
-          <div className="p-4 sm:p-5 font-mono text-xs leading-relaxed text-zinc-100 overflow-x-auto select-all">
-            <pre className="flex">
-              {showLineNumbers && (
-                <div className="select-none pr-4 text-right text-zinc-600 font-mono">
-                  {codeLines.map((_, i) => (
-                    <div key={i}>{i + 1}</div>
-                  ))}
-                </div>
-              )}
-              <code className="flex-1">{snippet.code}</code>
-            </pre>
-          </div>
+        {/* Footer Info */}
+        <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-2.5 text-xs text-zinc-500 bg-zinc-950/40">
+          <span>By {snippet.owner?.name || 'Teammate'} • {formatDate(snippet.created_at)}</span>
+          {canDelete && onDelete && (
+            <button
+              onClick={() => onDelete(snippet.id)}
+              className="flex items-center gap-1 text-zinc-500 hover:text-red-400 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="flex items-center justify-between border-t border-zinc-800 px-4 py-2.5 text-xs text-zinc-500 bg-zinc-950/40">
-        <span>By {snippet.owner?.name || 'Teammate'} • {formatDate(snippet.created_at)}</span>
-        {canDelete && onDelete && (
-          <button
-            onClick={() => onDelete(snippet.id)}
-            className="text-zinc-500 hover:text-red-400 transition-colors"
-          >
-            Delete
-          </button>
-        )}
-      </div>
-    </div>
+      {isEditOpen && (
+        <EditSnippetModal
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          snippet={snippet}
+          onUpdated={(updated) => {
+            if (onUpdate) onUpdate(updated);
+          }}
+        />
+      )}
+    </>
   );
 }
