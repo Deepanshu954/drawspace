@@ -119,10 +119,10 @@ export function RaysoCard({
           },
           attachments: [
             {
-              file_name: `${snippet.title.toLowerCase().replace(/\s+/g, '-')}-snippet.png`,
-              file_url: dataUrl,
-              file_type: 'image/png',
-              file_size: Math.round((dataUrl.length * 3) / 4),
+              name: `${snippet.title.toLowerCase().replace(/\s+/g, '-')}-snippet.png`,
+              url: dataUrl,
+              type: 'image/png',
+              size: Math.round((dataUrl.length * 3) / 4),
             },
           ],
         }),

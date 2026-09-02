@@ -42,7 +42,6 @@ export function Navbar({ profile }: NavbarProps) {
   const navItems = [
     { name: 'Boards', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Chat', href: '/chat', icon: MessageSquare },
-    { name: 'Docs', href: '/documents', icon: FileText },
     { name: 'Snippets', href: '/snippets', icon: Code2 },
     { name: 'Search', href: '/search', icon: Search },
   ];
@@ -159,15 +158,6 @@ export function Navbar({ profile }: NavbarProps) {
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
                     Workspace Chat
-                  </Link>
-
-                  <Link
-                    href="/documents"
-                    onClick={() => setIsDropdownOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    Knowledge Docs
                   </Link>
 
                   <Link
