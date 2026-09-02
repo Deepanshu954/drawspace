@@ -1,6 +1,6 @@
 import React from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { UserTable } from '@/components/admin/UserTable';
+import { AdminUsersView } from '@/components/admin/AdminUsersView';
 import { Profile } from '@/types/database';
 import { redirect } from 'next/navigation';
 
@@ -36,7 +36,7 @@ export default async function AdminUsersPage() {
   }
 
   return (
-    <UserTable
+    <AdminUsersView
       initialUsers={(users as Profile[]) || []}
       currentUserId={user.id}
     />

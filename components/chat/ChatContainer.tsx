@@ -84,29 +84,54 @@ export function ChatContainer({
     messageType: 'text' | 'code' | 'object_ref' = 'text',
     attachments?: any[]
   ) => {
-    const res = await fetch('/api/chat/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content,
-        channel_id: channel?.id,
-        dm_id: dmUser ? dmUser.id : undefined,
-        message_type: messageType,
-        attachments,
-      }),
-    });
+    // 1. Optimistic Message for instant response feel
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      channel_id: channel?.id || null,
+      dm_id: dmUser?.id || null,
+      parent_id: null,
+      sender_id: currentUserId,
+      content,
+      message_type: messageType,
+      is_edited: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      attachments: attachments ? attachments.map((a, idx) => ({ id: `att-${idx}`, message_id: tempId, file_name: a.file_name, file_url: a.file_url, file_type: a.file_type, file_size: a.file_size, created_at: new Date().toISOString() })) : [],
+      reactions: [],
+    };
 
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to send message');
-    }
-
-    const data = await res.json();
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === data.message.id)) return prev;
-      return [...prev, data.message];
-    });
+    setMessages((prev) => [...prev, optimisticMsg]);
     scrollToBottom();
+
+    try {
+      const res = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          channel_id: channel?.id,
+          dm_id: dmUser ? dmUser.id : undefined,
+          message_type: messageType,
+          attachments,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to send message');
+      }
+
+      const data = await res.json();
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? data.message : m))
+      );
+    } catch (err) {
+      console.error('Send message error:', err);
+      // Remove failed optimistic msg
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      throw err;
+    }
   };
 
   const handleAddReaction = async (messageId: string, emoji: string) => {

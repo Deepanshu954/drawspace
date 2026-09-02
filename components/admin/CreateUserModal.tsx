@@ -1,16 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
-import { Profile, UserRole } from '@/types/database';
+import { UserRole } from '@/types/database';
 
 interface CreateUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUserCreated: (user: Profile) => void;
+  onUserCreated?: (user: any) => void;
 }
 
 export function CreateUserModal({
@@ -18,8 +19,10 @@ export function CreateUserModal({
   onClose,
   onUserCreated,
 }: CreateUserModalProps) {
+  const router = useRouter();
   const { error, success } = useToast();
-  const [name, setName] = useState('');
+
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('user');
@@ -27,12 +30,7 @@ export function CreateUserModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password) return;
-
-    if (password.length < 8) {
-      error('Password must be at least 8 characters long');
-      return;
-    }
+    if (!username.trim() || !email.trim() || !password) return;
 
     setIsLoading(true);
     try {
@@ -40,8 +38,8 @@ export function CreateUserModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
+          username: username.trim().toLowerCase(),
+          email: email.trim().toLowerCase(),
           password,
           role,
         }),
@@ -52,13 +50,18 @@ export function CreateUserModal({
         throw new Error(data.error || 'Failed to create user');
       }
 
-      success(`User "${name}" created successfully with initial password.`);
-      setName('');
+      success(`User @${username} created and activated!`);
+      setUsername('');
       setEmail('');
       setPassword('');
       setRole('user');
-      onUserCreated(data.user);
       onClose();
+
+      if (onUserCreated) {
+        onUserCreated(data.user);
+      } else {
+        router.refresh();
+      }
     } catch (err: any) {
       error(err.message || 'Error creating user');
     } finally {
@@ -66,73 +69,52 @@ export function CreateUserModal({
     }
   };
 
-  const generateRandomPassword = () => {
-    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
-    let pass = '';
-    for (let i = 0; i < 12; i++) {
-      pass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setPassword(pass);
-  };
-
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Workspace User"
-      description="Add a new member to DrawSpace and assign their initial temporary password."
+      title="Add New Workspace User"
+      description="Create a team member account with username, email, and password."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Full Name"
-          placeholder="e.g. Rahul Sharma"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          label="1. Username"
+          placeholder="e.g. rahul_dev"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           required
+          autoFocus
         />
 
         <Input
-          label="Email Address"
+          label="2. Gmail / Email Address"
           type="email"
-          placeholder="rahul@drawspace.local"
+          placeholder="e.g. rahul@gmail.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Initial Password
-            </label>
-            <button
-              type="button"
-              onClick={generateRandomPassword}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 cursor-pointer"
-            >
-              Generate Strong Password
-            </button>
-          </div>
-          <Input
-            type="text"
-            placeholder="Min 8 characters"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+        <Input
+          label="3. Password"
+          type="password"
+          placeholder="At least 6 characters"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
 
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            System Role
+        <div>
+          <label className="block text-sm font-medium text-zinc-300 mb-1.5">
+            Role & Permissions
           </label>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as UserRole)}
-            className="flex h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="flex h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none"
           >
-            <option value="user">User (Standard Access)</option>
-            <option value="admin">Admin (Full Access & User Management)</option>
+            <option value="user">Member (Standard Workspace Access)</option>
+            <option value="admin">Admin (Full Control & User Management)</option>
           </select>
         </div>
 

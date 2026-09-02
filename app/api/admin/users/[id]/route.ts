@@ -4,10 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
 const updateUserSchema = z.object({
-  name: z.string().min(1).optional(),
-  role: z.enum(['admin', 'user']).optional(),
   is_active: z.boolean().optional(),
-  password: z.string().min(8).optional(),
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+  role: z.enum(['admin', 'user']).optional(),
+  password: z.string().min(6).optional(),
 });
 
 export async function PATCH(
@@ -15,7 +15,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: targetUserId } = await params;
+    const { id } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -25,18 +25,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify admin role server-side
-    const { data: callerProfile } = await supabase
+    // Check admin
+    const { data: adminProfile } = await supabase
       .from('profiles')
-      .select('role, is_active')
+      .select('role')
       .eq('id', user.id)
       .single();
 
-    if (!callerProfile || callerProfile.role !== 'admin' || !callerProfile.is_active) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (adminProfile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Prevent self-deactivation or self-demotion to avoid lockout
     const body = await req.json();
     const parsed = updateUserSchema.safeParse(body);
     if (!parsed.success) {
@@ -46,61 +45,43 @@ export async function PATCH(
       );
     }
 
-    if (user.id === targetUserId) {
-      if (parsed.data.is_active === false) {
-        return NextResponse.json(
-          { error: 'Admins cannot deactivate their own account.' },
-          { status: 400 }
-        );
-      }
-      if (parsed.data.role === 'user') {
-        return NextResponse.json(
-          { error: 'Admins cannot demote their own admin role.' },
-          { status: 400 }
-        );
-      }
-    }
+    const admin = createAdminClient();
 
-    const adminClient = createAdminClient();
-
-    // 1. If password reset requested
+    // 1. Password reset if provided
     if (parsed.data.password) {
-      const { error: passErr } = await adminClient.auth.admin.updateUserById(
-        targetUserId,
-        { password: parsed.data.password }
-      );
-      if (passErr) {
-        return NextResponse.json({ error: passErr.message }, { status: 400 });
+      const { error: pwdErr } = await admin.auth.admin.updateUserById(id, {
+        password: parsed.data.password,
+      });
+      if (pwdErr) {
+        return NextResponse.json({ error: pwdErr.message }, { status: 400 });
       }
     }
 
-    // 2. Update profile table
-    const profileUpdates: Record<string, any> = {
+    // 2. Profile updates
+    const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
-    if (parsed.data.name !== undefined) profileUpdates.name = parsed.data.name;
-    if (parsed.data.role !== undefined) profileUpdates.role = parsed.data.role;
-    if (parsed.data.is_active !== undefined) profileUpdates.is_active = parsed.data.is_active;
 
-    const { data: updatedProfile, error: profileErr } = await adminClient
+    if (parsed.data.is_active !== undefined) updates.is_active = parsed.data.is_active;
+    if (parsed.data.status !== undefined) {
+      updates.status = parsed.data.status;
+      if (parsed.data.status === 'approved') {
+        updates.is_active = true;
+      } else if (parsed.data.status === 'rejected') {
+        updates.is_active = false;
+      }
+    }
+    if (parsed.data.role !== undefined) updates.role = parsed.data.role;
+
+    const { data: updatedProfile, error: profErr } = await admin
       .from('profiles')
-      .update(profileUpdates)
-      .eq('id', targetUserId)
+      .update(updates)
+      .eq('id', id)
       .select()
       .single();
 
-    if (profileErr) {
-      return NextResponse.json({ error: profileErr.message }, { status: 500 });
-    }
-
-    // 3. Update auth user metadata if name/role changed
-    if (parsed.data.name || parsed.data.role) {
-      await adminClient.auth.admin.updateUserById(targetUserId, {
-        user_metadata: {
-          name: updatedProfile.name,
-          role: updatedProfile.role,
-        },
-      });
+    if (profErr) {
+      return NextResponse.json({ error: profErr.message }, { status: 500 });
     }
 
     return NextResponse.json({ user: updatedProfile });
@@ -117,7 +98,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: targetUserId } = await params;
+    const { id } = await params;
     const supabase = await createClient();
     const {
       data: { user },
@@ -127,30 +108,28 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: callerProfile } = await supabase
+    const { data: adminProfile } = await supabase
       .from('profiles')
-      .select('role, is_active')
+      .select('role')
       .eq('id', user.id)
       .single();
 
-    if (!callerProfile || callerProfile.role !== 'admin' || !callerProfile.is_active) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (adminProfile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (user.id === targetUserId) {
+    if (id === user.id) {
       return NextResponse.json(
-        { error: 'Admins cannot delete their own account.' },
+        { error: 'Cannot delete your own admin account' },
         { status: 400 }
       );
     }
 
-    const adminClient = createAdminClient();
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.deleteUser(id);
 
-    // Delete user from auth.users (cascades to profiles, board_members, etc.)
-    const { error: delError } = await adminClient.auth.admin.deleteUser(targetUserId);
-
-    if (delError) {
-      return NextResponse.json({ error: delError.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

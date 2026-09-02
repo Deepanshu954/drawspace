@@ -92,7 +92,7 @@ export default function ExcalidrawWrapper({
       />
 
       {/* Excalidraw Canvas Container with non-zero dimensions */}
-      <div className="relative flex-1 w-full h-full bg-zinc-950">
+      <div className="relative flex-1 w-full h-full">
         <Excalidraw
           excalidrawAPI={(api) => setExcalidrawAPI(api)}
           initialData={{
@@ -100,14 +100,11 @@ export default function ExcalidrawWrapper({
             appState: {
               ...(sceneData.appState || {}),
               viewModeEnabled: isViewer,
-              theme: 'dark',
-              viewBackgroundColor: '#121212',
             },
             files: sceneData.files || {},
           }}
           onChange={handleChange}
           viewModeEnabled={isViewer}
-          theme="dark"
           UIOptions={{
             canvasActions: {
               changeViewBackgroundColor: true,

@@ -6,8 +6,10 @@ export type SaveStatus = 'saved' | 'saving' | 'error' | 'offline';
 export interface Profile {
   id: string;
   name: string;
+  username?: string;
   email: string;
   role: UserRole;
+  status?: 'pending' | 'approved' | 'rejected';
   is_active: boolean;
   created_at: string;
   updated_at: string;
